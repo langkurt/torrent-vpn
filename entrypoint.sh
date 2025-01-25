@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# Clean up stale X server lock files
+if [ -f /tmp/.X0-lock ]; then
+    echo "Removing stale X server lock file..."
+    rm -f /tmp/.X0-lock
+fi
+
 # Start OpenVPN client
 openvpn --config /etc/openvpn/client.conf --daemon
 
@@ -17,6 +23,16 @@ iptables -A OUTPUT -o "$VPN_INTERFACE" -j ACCEPT
 iptables -A OUTPUT -o lo -j ACCEPT
 iptables -A OUTPUT -d 127.0.0.1 -j ACCEPT
 iptables -A OUTPUT -j DROP
+
+# Start X virtual framebuffer for GUI
+export DISPLAY=:0
+Xvfb :0 -screen 0 1920x1080x24 &
+
+# Start VNC server
+x11vnc -display :0 -nopw -forever &
+
+# Start lightweight window manager
+fluxbox &
 
 # Start file scanner in the background
 python3 /file_scanner.py &

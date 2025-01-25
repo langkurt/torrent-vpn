@@ -11,6 +11,11 @@ RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
     python3-venv \
+    wget \
+    chromium-browser \
+    xvfb \
+    x11vnc \
+    fluxbox \
     && apt-get clean
 
 # Create a virtual environment for Python
@@ -37,7 +42,7 @@ COPY ./entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 # Expose necessary ports
-EXPOSE 8080 8999
+EXPOSE 8080 8999 5900
 
 # Set up entrypoint
 ENTRYPOINT ["/entrypoint.sh"]
