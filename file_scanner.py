@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import time
 import requests
 
@@ -7,7 +8,7 @@ import requests
 API_URL = "https://www.virustotal.com/api/v3/files"
 
 # Load API key from external configuration
-CONFIG_PATH = "/configs/env.json"
+CONFIG_PATH = "/root/env.json"
 if not os.path.exists(CONFIG_PATH):
     raise FileNotFoundError(f"Configuration file not found at {CONFIG_PATH}")
 
@@ -74,7 +75,8 @@ def monitor_and_scan():
 
                 if malicious == 0:
                     print(f"{filename} is clean. Moving to {SAFE_DIR}.")
-                    os.rename(file_path, os.path.join(SAFE_DIR, filename))
+                    # Use shutil.move instead of os.rename
+                    shutil.move(file_path, os.path.join(SAFE_DIR, filename))
                 else:
                     print(f"{filename} is malicious. Deleting file.")
                     os.remove(file_path)
@@ -82,7 +84,7 @@ def monitor_and_scan():
         time.sleep(10)  # Check for new files every 10 seconds
 
 if __name__ == "__main__":
-    print("Starting Virusotal file scanner process. ")
-    if not os.path.exists(SAFE_DIR):
-        os.makedirs(SAFE_DIR)
+    print("Starting VirusTotal file scanner process. ")
+    os.makedirs(SAFE_DIR, exist_ok=True)
+    os.makedirs(DOWNLOAD_DIR, exist_ok=True)
     monitor_and_scan()

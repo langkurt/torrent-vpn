@@ -26,6 +26,9 @@ ENV PATH="/venv/bin:$PATH"
 # Add the file scanner script
 COPY file_scanner.py /file_scanner.py
 
+# Add the environment variables
+COPY configs/env.json /root/env.json
+
 # Add OpenVPN configuration
 COPY configs/vpn-configs/vpn-config.ovpn /etc/openvpn/client.conf
 
