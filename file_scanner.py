@@ -18,7 +18,6 @@ API_URL = "https://www.virustotal.com/api/v3/files"
 # Load API key from external configuration
 CONFIG_PATH = "/root/env.json"
 if not os.path.exists(CONFIG_PATH):
-
     raise FileNotFoundError(f"Configuration file not found at {CONFIG_PATH}")
 
 with open(CONFIG_PATH, "r") as config_file:
@@ -28,72 +27,90 @@ API_KEY = config.get("virustotal_api_key")
 if not API_KEY:
     raise ValueError("API key not found in configuration file")
 
-# Directories
-DOWNLOAD_DIR = "/root/downloads"  # The torrent download folder
-SAFE_DIR = "/root/safe_downloads"  # The folder for clean files
+DOWNLOAD_DIR = "/root/downloads"
+SAFE_DIR = "/root/safe_downloads"
 
-# Function to upload and scan a file with VirusTotal
-def scan_file(file_path):
-    with open(file_path, "rb") as file:
-        response = requests.post(
-            API_URL,
-            headers={"x-apikey": API_KEY},
-            files={"file": file}
-        )
-    return response
-
-# Monitor and scan downloaded files
-def monitor_and_scan():
-    backoff_time = 15  # Initial backoff time in seconds
-
-    while True:
-        for filename in os.listdir(DOWNLOAD_DIR):
-            file_path = os.path.join(DOWNLOAD_DIR, filename)
-            if os.path.isfile(file_path):
-                logging.info(f"Scanning {filename}...")
-
-                # Attempt to scan the file
-                response = scan_file(file_path)
-
-                if response.status_code == 429:  # Too many requests
-                    logging.warning("Rate limit exceeded. Backing off...")
-                    time.sleep(backoff_time)
-                    backoff_time = min(backoff_time * 2, 300)  # Exponential backoff, max 5 minutes
-                    continue
-                elif response.status_code != 200:
-                    logging.error(f"Error scanning {filename}: {response.status_code}, {response.text}")
-                    continue
-
-                # Reset backoff time on success
-                backoff_time = 15
-
-                # Process the response
-                result = response.json()
-                scan_id = result.get("data", {}).get("id")
-                if not scan_id:
-                    logging.warning(f"Error: Unable to retrieve scan ID for {filename}")
-                    continue
-
-                # Get the scan result
-                report_url = f"{API_URL}/{scan_id}"
-                report_response = requests.get(
-                    report_url, headers={"x-apikey": API_KEY}
+def scan_file(file_path, retries=3):
+    for attempt in range(retries):
+        try:
+            with open(file_path, "rb") as file:
+                response = requests.post(
+                    API_URL,
+                    headers={"x-apikey": API_KEY},
+                    files={"file": file}
                 )
-                report = report_response.json()
-                malicious = report.get("data", {}).get("attributes", {}).get("last_analysis_stats", {}).get("malicious", 0)
+            return response
+        except requests.RequestException as e:
+            logging.warning(f"Attempt {attempt + 1} failed for {file_path}: {e}")
+            time.sleep(2)
+    raise RuntimeError(f"Failed to scan {file_path} after {retries} attempts")
 
-                if malicious == 0:
-                    logging.info(f"{filename} is clean. Moving to {SAFE_DIR}.")
-                    # Use shutil.move instead of os.rename
-                    shutil.move(file_path, os.path.join(SAFE_DIR, filename))
-                else:
-                    logging.warning(f"{filename} is malicious. Deleting file.")
-                    os.remove(file_path)
+def monitor_and_scan():
+    backoff_time = 15
+    while True:
+        logging.debug(f"Checking for new files in {DOWNLOAD_DIR}")
+        for root, dirs, files in os.walk(DOWNLOAD_DIR):
+            for filename in files:
+                file_path = os.path.join(root, filename)
+                if os.path.isfile(file_path):
+                    logging.info(f"Scanning {file_path}...")
+                    try:
+                        response = scan_file(file_path)
+                    except RuntimeError as e:
+                        logging.error(f"Error scanning {file_path}: {e}")
+                        continue
 
-        time.sleep(10)  # Check for new files every 10 seconds
+                    if response.status_code == 429:
+                        logging.warning("Rate limit exceeded. Backing off...")
+                        time.sleep(backoff_time)
+                        backoff_time = min(backoff_time * 2, 300)
+                        continue
+                    elif response.status_code != 200:
+                        logging.error(f"Error scanning {file_path}: {response.status_code}, {response.text}")
+                        continue
+
+                    backoff_time = 15
+                    result = response.json()
+                    scan_id = result.get("data", {}).get("id")
+                    if not scan_id:
+                        logging.warning(f"Unable to retrieve scan ID for {file_path}")
+                        continue
+
+                    report_url = f"{API_URL}/{scan_id}"
+                    report_response = requests.get(
+                        report_url, headers={"x-apikey": API_KEY}
+                    )
+                    report = report_response.json()
+                    malicious = report.get("data", {}).get("attributes", {}).get("last_analysis_stats", {}).get("malicious", 0)
+
+                    relative_path = os.path.relpath(file_path, DOWNLOAD_DIR)
+                    safe_file_path = os.path.join(SAFE_DIR, relative_path)
+
+                    if malicious == 0:
+                        logging.info(f"{file_path} is clean. Moving to {safe_file_path}.")
+                        os.makedirs(os.path.dirname(safe_file_path), exist_ok=True)
+                        shutil.move(file_path, safe_file_path)
+                    else:
+                        logging.warning(f"{file_path} is malicious. Deleting file.")
+                        os.remove(file_path)
+
+        for root, dirs, files in os.walk(DOWNLOAD_DIR, topdown=False):
+            for directory in dirs:
+                dir_path = os.path.join(root, directory)
+                if not os.listdir(dir_path):
+                    os.rmdir(dir_path)
+                    logging.debug(f"Removed empty directory: {dir_path}")
+
+        time.sleep(10)
 
 if __name__ == "__main__":
-    logging.info("Starting VirusTotal file scanner process. ")
+    logging.info("Starting VirusTotal file scanner process.")
     os.makedirs(SAFE_DIR, exist_ok=True)
     os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+    if not os.access(DOWNLOAD_DIR, os.R_OK):
+        logging.error(f"DOWNLOAD_DIR {DOWNLOAD_DIR} is not readable. Exiting.")
+        exit(1)
+    if not os.access(SAFE_DIR, os.W_OK):
+        logging.error(f"SAFE_DIR {SAFE_DIR} is not writable. Exiting.")
+        exit(1)
     monitor_and_scan()
