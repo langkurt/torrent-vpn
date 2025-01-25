@@ -1,0 +1,40 @@
+### VPN
+
+VPN Configuration File (vpn-config.ovpn)
+Replace this with your actual VPN configuration file. If you use a provider like NordVPN, PIA, or others, download their .ovpn file.
+
+To ensure your VPN is working and all torrent traffic is routed through it:
+`docker exec -it torrent-vpn curl https://ifconfig.me`
+This should show the IP address assigned by your VPN, not your actual IP.
+
+
+### Build and Run the Docker Image
+	1.	Build the image:
+`docker build -t torrent-vpn .`
+
+	2.	Run the container:
+```
+docker run -d --name torrent-vpn \
+  --cap-add=NET_ADMIN \
+  --device /dev/net/tun \
+  -v "/Users/kurtlang/Google Drive/My Drive/Rakuten Kobo":/root/safe_downloads \
+  -p 8080:8080 \
+  torrent-vpn
+  ```
+
+	•	--cap-add=NET_ADMIN: Grants network configuration privileges.
+	•	--device /dev/net/tun: Enables the VPN’s tunneling functionality.
+
+
+Start/Stop the Container:
+```
+docker start torrent-vpn
+docker stop torrent-vpn
+```
+
+Check container logs
+`docker logs torrent-vpn`
+
+Access the Shell (for advanced configuration):
+`docker exec -it torrent-vpn bash`
+

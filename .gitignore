@@ -1,0 +1,14 @@
+# Ignore API key files
+configs/*.json
+configs/vpn-configs/*
+
+# Ignore Python cache files
+__pycache__/
+*.pyc
+
+# Ignore logs
+/logs/
+
+# Ignore Docker intermediate files
+*.env
+*.log
