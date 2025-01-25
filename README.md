@@ -81,7 +81,11 @@ docker stop torrent-vpn
 ```
 
 Check container logs:
-`docker logs torrent-vpn`
+```
+docker logs torrent-vpn
+docker logs torrent-vpn 2>&1 | grep -i password
+docker exec -it torrent-vpn tail -f /var/log/file_scanner.log
+```
 
 Access the Shell:
 `docker exec -it torrent-vpn bash`

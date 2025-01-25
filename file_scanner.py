@@ -3,6 +3,14 @@ import os
 import shutil
 import time
 import requests
+import logging
+
+# Configure logging
+logging.basicConfig(
+    filename="/var/log/file_scanner.log",
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 # VirusTotal API configuration
 API_URL = "https://www.virustotal.com/api/v3/files"
@@ -10,6 +18,7 @@ API_URL = "https://www.virustotal.com/api/v3/files"
 # Load API key from external configuration
 CONFIG_PATH = "/root/env.json"
 if not os.path.exists(CONFIG_PATH):
+
     raise FileNotFoundError(f"Configuration file not found at {CONFIG_PATH}")
 
 with open(CONFIG_PATH, "r") as config_file:
@@ -41,18 +50,18 @@ def monitor_and_scan():
         for filename in os.listdir(DOWNLOAD_DIR):
             file_path = os.path.join(DOWNLOAD_DIR, filename)
             if os.path.isfile(file_path):
-                print(f"Scanning {filename}...")
+                logging.info(f"Scanning {filename}...")
 
                 # Attempt to scan the file
                 response = scan_file(file_path)
 
                 if response.status_code == 429:  # Too many requests
-                    print("Rate limit exceeded. Backing off...")
+                    logging.warning("Rate limit exceeded. Backing off...")
                     time.sleep(backoff_time)
                     backoff_time = min(backoff_time * 2, 300)  # Exponential backoff, max 5 minutes
                     continue
                 elif response.status_code != 200:
-                    print(f"Error scanning {filename}: {response.status_code}, {response.text}")
+                    logging.error(f"Error scanning {filename}: {response.status_code}, {response.text}")
                     continue
 
                 # Reset backoff time on success
@@ -62,7 +71,7 @@ def monitor_and_scan():
                 result = response.json()
                 scan_id = result.get("data", {}).get("id")
                 if not scan_id:
-                    print(f"Error: Unable to retrieve scan ID for {filename}")
+                    logging.warning(f"Error: Unable to retrieve scan ID for {filename}")
                     continue
 
                 # Get the scan result
@@ -74,17 +83,17 @@ def monitor_and_scan():
                 malicious = report.get("data", {}).get("attributes", {}).get("last_analysis_stats", {}).get("malicious", 0)
 
                 if malicious == 0:
-                    print(f"{filename} is clean. Moving to {SAFE_DIR}.")
+                    logging.info(f"{filename} is clean. Moving to {SAFE_DIR}.")
                     # Use shutil.move instead of os.rename
                     shutil.move(file_path, os.path.join(SAFE_DIR, filename))
                 else:
-                    print(f"{filename} is malicious. Deleting file.")
+                    logging.warning(f"{filename} is malicious. Deleting file.")
                     os.remove(file_path)
 
         time.sleep(10)  # Check for new files every 10 seconds
 
 if __name__ == "__main__":
-    print("Starting VirusTotal file scanner process. ")
+    logging.info("Starting VirusTotal file scanner process. ")
     os.makedirs(SAFE_DIR, exist_ok=True)
     os.makedirs(DOWNLOAD_DIR, exist_ok=True)
     monitor_and_scan()

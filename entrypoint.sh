@@ -31,16 +31,16 @@ iptables -A OUTPUT -j DROP
 
 # Start X virtual framebuffer for GUI
 export DISPLAY=:0
-Xvfb :0 -screen 0 1920x1080x24 &
+Xvfb :0 -screen 0 1920x1080x24 > /var/log/xvfb.log 2>&1 &
 
 # Start VNC server
-x11vnc -display :0 -nopw -forever &
+x11vnc -display :0 -nopw -forever -quiet > /var/log/x11vnc.log 2>&1 &
 
 # Start lightweight window manager
-fluxbox &
+fluxbox > /var/log/fluxbox.log 2>&1 &
 
 # Start file scanner in the background
-python3 /file_scanner.py &
+python3 /file_scanner.py > /var/log/file_scanner.log 2>&1 &
 
 # Start qBittorrent
 qbittorrent-nox
