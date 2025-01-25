@@ -12,10 +12,21 @@ RUN apt-get update && apt-get install -y \
     python3-pip \
     python3-venv \
     wget \
-    chromium-browser \
     xvfb \
     x11vnc \
     fluxbox \
+    xterm \
+    software-properties-common \
+    && apt-get clean
+
+# Install dependencies and Brave Browser
+RUN apt-get update && apt-get install -y \
+    curl \
+    apt-transport-https \
+    software-properties-common \
+    && curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyring.gpg https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg \
+    && echo "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg arch=arm64] https://brave-browser-apt-release.s3.brave.com/ stable main" | tee /etc/apt/sources.list.d/brave-browser-release.list \
+    && apt-get update && apt-get install -y brave-browser \
     && apt-get clean
 
 # Create a virtual environment for Python

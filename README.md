@@ -9,10 +9,11 @@ This project creates a Docker container that runs a torrent client (qBittorrent)
 - Supports Docker for easy deployment.
 
 ## Setup
-1. Clone this repository:
+Clone this repository:
    ```bash
    git clone <repo_url>
    cd torrent-vpn
+  ```
 
 ### Notes on VPN
 
@@ -23,22 +24,29 @@ To ensure your VPN is working and all torrent traffic is routed through it:
 `docker exec -it torrent-vpn curl https://ifconfig.me`
 This should show the IP address assigned by your VPN, not your actual IP.
 
-## Added Features: Integrated Browser and VNC Access
-
-### Integrated Browser
-This container now includes the Chromium browser, allowing you to browse websites directly within the container and download `.torrent` files. All browsing traffic is routed through the VPN for privacy.
-
 ### VNC Access
 A VNC server is included to provide a graphical interface for the browser. You can connect to the container's desktop environment using any VNC viewer.
 
-### How to Use
 
-#### Access the VNC Server
+## Using Brave Browser in the Container
+
+Brave Browser is installed in the container and can be accessed through the VNC session. Follow the steps below to run it:
+
+### Launching Brave Browser
+1. Connect to the container's VNC session (e.g., `localhost:5900`) using your preferred VNC viewer.
+2. Open a terminal inside the VNC session.
+3. Run the following command to start Brave Browser:
+   ```bash
+   brave-browser --no-sandbox &
+
+
+### How to Use Docker
+
 1.	Build the image:
 `docker build -t torrent-vpn .`
 
 2. Start the container:
-   ```bash
+```bash
    docker run -d --name torrent-vpn \
      --cap-add=NET_ADMIN \
      --device /dev/net/tun \
@@ -47,10 +55,12 @@ A VNC server is included to provide a graphical interface for the browser. You c
      -p 8080:8080 \
      -p 5900:5900 \
      torrent-vpn
-
-
-	2.	Run the container:
 ```
+
+
+3. Run the container:
+
+```bash
 docker run -d --name torrent-vpn \
   --cap-add=NET_ADMIN \
   --device /dev/net/tun \
@@ -60,8 +70,8 @@ docker run -d --name torrent-vpn \
   torrent-vpn
   ```
 
-	•	--cap-add=NET_ADMIN: Grants network configuration privileges.
-	•	--device /dev/net/tun: Enables the VPN’s tunneling functionality.
+-	--cap-add=NET_ADMIN: Grants network configuration privileges.
+-	--device /dev/net/tun: Enables the VPN’s tunneling functionality.
 
 
 Start/Stop the Container:
@@ -70,9 +80,9 @@ docker start torrent-vpn
 docker stop torrent-vpn
 ```
 
-Check container logs
+Check container logs:
 `docker logs torrent-vpn`
 
-Access the Shell (for advanced configuration):
+Access the Shell:
 `docker exec -it torrent-vpn bash`
 

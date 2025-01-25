@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# Ensure xterm is available as x-terminal-emulator
+if [ ! -f /usr/bin/x-terminal-emulator ]; then
+    ln -s /usr/bin/xterm /usr/bin/x-terminal-emulator
+fi
+
 # Clean up stale X server lock files
 if [ -f /tmp/.X0-lock ]; then
     echo "Removing stale X server lock file..."
