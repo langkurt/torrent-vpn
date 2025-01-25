@@ -1,4 +1,21 @@
-### VPN
+# Torrent VPN with VirusTotal Integration
+
+This project creates a Docker container that runs a torrent client (qBittorrent) with VPN support and scans all downloaded files through VirusTotal.
+
+## Features
+- Secure VPN connection using OpenVPN.
+- Scans downloaded files with VirusTotal API.
+- Only clean files are moved to the accessible volume.
+- Supports Docker for easy deployment.
+
+## Setup
+1. Clone this repository:
+   ```bash
+   git clone <repo_url>
+   cd torrent-vpn
+
+
+### Notes on VPN
 
 VPN Configuration File (vpn-config.ovpn)
 Replace this with your actual VPN configuration file. If you use a provider like NordVPN, PIA, or others, download their .ovpn file.
