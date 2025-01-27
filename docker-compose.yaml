@@ -1,0 +1,127 @@
+services:
+  ###########################################################
+  # 1) Browser Container
+  ###########################################################
+  browser:
+    image: jlesage/firefox:latest
+    platform: linux/arm64
+    container_name: browser
+    # Expose the noVNC UI for Firefox on port 5800 (adjust as needed).
+    ports:
+      - "5900:5900"
+    environment:
+      # Make sure the user in the container can write to volumes
+      USER_ID: 1000
+      GROUP_ID: 1000
+      TZ: Etc/UTC
+    volumes:
+      # Downloading .torrent files to this volume
+      - torrent-files:/home/user/Downloads
+      # direct downloads go here to be scanned
+      - downloaded-data:/home/user/scan
+    restart: unless-stopped
+
+  ###########################################################
+  # 2) qBittorrent + VPN Container
+  ###########################################################
+  qbittorrent_vpn:
+    image: trigus42/qbittorrentvpn:latest
+    platform: linux/arm64
+    container_name: qbittorrent_vpn
+
+    # By default, binhex/arch-qbittorrentvpn uses its own internal network
+    # stack with OpenVPN/WireGuard. We'll publish only the WebUI port below.
+    ports:
+      - "8080:8080"     # qBittorrent Web UI
+      # If you need port forwarding for peers,
+      # binhex container handles that automatically once connected to VPN.
+      # No direct inbound torrent traffic is exposed on the host unless required.
+
+    cap_add:
+      - NET_ADMIN
+    environment:
+      # -------------------- VPN Settings --------------------
+      - VPN_ENABLED=yes
+      - VPN_TYPE=openvpn
+
+      - STRICT_PORT_FORWARD=yes    # ensure port forwarding is locked to VPN
+      # OpenVPN:
+      - ENABLE_OPENVPN=true
+      - OPENVPN_CONFIG=vpn-config.ovpn  # e.g. myvpn.ovpn (placed in /config/openvpn)
+
+      # -------------------- QBT & System --------------------
+      - LAN_NETWORK=192.168.1.0/24 # set your LAN subnet if you want local access
+      - WEBUI_PORT=8080
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+
+      # -------------------- Optional Proxy (Privoxy) --------------------
+      - ENABLE_PRIVOXY=no
+
+    volumes:
+      # Volume for the container's config & VPN client files
+      - qbittorrent-config:/config
+      # Watch folder for .torrent files
+      - torrent-files:/watch
+      # Download location (unscanned)
+      - downloaded-data:/downloads
+      # Mount the host directory with OVPN files into /config/openvpn in the container
+      - ./configs/vpn-configs:/config/openvpn
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # Important for torrenting over VPN
+    # Only re-launch if there are problems
+    restart: unless-stopped
+
+  ###########################################################
+  # 3) Scanner (ClamAV) Container
+  ###########################################################
+  scanner:
+    image: clamav/clamav:latest
+    platform: linux/amd64
+    container_name: scanner
+
+    # We'll mount the unscanned data volume to /scan
+    # and the safe/clean volume to /safe
+    volumes:
+      - downloaded-data:/scan
+      - /Users/kurtlang/Google Drive/My Drive/Rakuten Kobo:/safe
+
+    # This command is a basic example that:
+    #   1) Updates the ClamAV DB on start.
+    #   2) Loops, scanning /scan every 60 seconds.
+    #   3) Moves infected files to /scan/infected (or deletes them).
+    #   4) Moves clean files to /safe.
+    command: >
+      sh -c "
+        freshclam || true;
+        mkdir -p /scan/infected;
+        while true
+        do
+          echo 'Scanning for viruses...';
+          clamscan -r --remove --move=/scan/infected /scan
+
+          # Move anything not in /scan/infected to /safe
+          find /scan -type f -not -path '/scan/infected/*' -exec mv {} /safe/ \\;
+
+          echo 'Scan cycle complete. Sleeping...';
+          sleep 60
+        done
+      "
+    environment:
+      - TZ=Etc/UTC
+    restart: unless-stopped
+
+###########################################################
+# Docker Volumes
+###########################################################
+volumes:
+  torrent-files:
+  downloaded-data:
+  safe-files:
+  qbittorrent-config:
